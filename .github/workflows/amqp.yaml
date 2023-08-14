@@ -1,0 +1,49 @@
+name: Go Test
+on:
+  push:
+    branches:
+      - master
+      - main
+      - develop
+      - feature/**
+      - fix/**
+  pull_request:
+    branches:
+      - master
+      - main
+      - develop
+      - feature/**
+      - fix/**
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Service containers to run with `code-test`
+    services:
+      # MySQL backend server.
+      rabbitmq:
+        image: rabbitmq
+        ports:
+          - 5672:5672
+    strategy:
+      matrix:
+        go: [1.17, 1.18, 1.19, 1.20]
+        goarch: [ "amd64" ]
+    steps:
+      - name: Setup Golang ${{ matrix.go-version }}
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+
+      - name: Build Amqp
+        run: go mod tidy && go build ./...
+
+      - name: Test Amqp
+        run: go test ./... -race -coverprofile=coverage.out -covermode=atomic
+
+      - name: Report Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          flags: go-${{ matrix.go-version }}-${{ matrix.goarch }}
