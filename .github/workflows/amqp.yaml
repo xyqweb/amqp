@@ -26,7 +26,7 @@ jobs:
           - 5672:5672
     strategy:
       matrix:
-        go: [1.17, 1.18, 1.19, 1.20]
+        go: [1.18, 1.19, 1.20]
         goarch: [ "amd64" ]
     steps:
       - name: Setup Golang ${{ matrix.go-version }}
