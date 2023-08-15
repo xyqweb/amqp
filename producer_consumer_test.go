@@ -102,6 +102,91 @@ func Test_ProducerPublishByConsumer(t *testing.T) {
 		}
 	})
 }
+
+func Test_ProducerTxPush(t *testing.T) {
+	//t.Skip()
+	t.Run("push queue by transaction commit", func(t *testing.T) {
+		producer := amqp.Producer
+		txId := "rK1y4WEeT8mDThVITiFO"
+		ctx := context.Background()
+		if err := producer.TxBegin(txId); err != nil {
+			t.Errorf("tx begin err:%+v", err)
+		}
+		if messageId, err := producer.Publish(ctx, &amqp.Queue{
+			QueueName: "queue",
+			Type:      "txPush",
+			Data: map[string]interface{}{
+				"time": time.Now().UnixMilli(),
+			},
+			Delay: 0,
+		}); err != nil {
+			t.Errorf("tx push err:%+v", err)
+		} else if messageId == "" {
+			t.Error("tx push err messageId is empty")
+		} else {
+			t.Logf("tx push success messageId:%s", messageId)
+		}
+		if messageId, err := producer.Publish(ctx, &amqp.Queue{
+			QueueName: "queue",
+			Type:      "txPush",
+			Data: map[string]interface{}{
+				"time": time.Now().UnixMilli(),
+			},
+			Delay: 0,
+		}, func(ctx context.Context) string {
+			return txId
+		}); err != nil {
+			t.Errorf("tx push err:%+v", err)
+		} else if messageId == "" {
+			t.Error("tx push err messageId is empty")
+		} else {
+			t.Logf("tx push success messageId:%s", messageId)
+		}
+		if err := producer.TxCommit(ctx, txId); err != nil {
+			t.Errorf("tx commit err:%+v", err)
+		}
+	})
+	t.Run("push queue by transaction rollback", func(t *testing.T) {
+		producer := amqp.Producer
+		txId := "V8tUmZW0wSpSNORIvh2r"
+		ctx := context.Background()
+		if err := producer.TxBegin(txId); err != nil {
+			t.Errorf("tx begin err:%+v", err)
+		}
+		if messageId, err := producer.Publish(ctx, &amqp.Queue{
+			QueueName: "queue",
+			Type:      "txPush",
+			Data: map[string]interface{}{
+				"time": time.Now().UnixMilli(),
+			},
+			Delay: 0,
+		}); err != nil {
+			t.Errorf("tx push err:%+v", err)
+		} else if messageId == "" {
+			t.Error("tx push err messageId is empty")
+		} else {
+			t.Logf("tx push success messageId:%s", messageId)
+		}
+		if messageId, err := producer.Publish(ctx, &amqp.Queue{
+			QueueName: "queue",
+			Type:      "txPush",
+			Data: map[string]interface{}{
+				"time": time.Now().UnixMilli(),
+			},
+			Delay: 0,
+		}); err != nil {
+			t.Errorf("tx push err:%+v", err)
+		} else if messageId == "" {
+			t.Error("tx push err messageId is empty")
+		} else {
+			t.Logf("tx push success messageId:%s", messageId)
+		}
+		if err := producer.TxRollback(txId); err != nil {
+			t.Errorf("tx rollback err:%+v", err)
+		}
+	})
+}
+
 func Test_ConsumerStart(t *testing.T) {
 	//t.Skip()
 	t.Run("start Consumer", func(t *testing.T) {
@@ -109,6 +194,7 @@ func Test_ConsumerStart(t *testing.T) {
 		go func() {
 			time.Sleep(2 * time.Second)
 			consume.Close(true)
+			t.Log("test connection close and reopen")
 			time.Sleep(8 * time.Second)
 			consume.Close()
 		}()

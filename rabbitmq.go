@@ -153,9 +153,10 @@ func (r *rabbitmq) ReopenConn(notifyClose chan *amqp.Error) *amqp.Connection {
 	isContinue := true
 	for isContinue {
 		if err := r.newConn(); err != nil {
-			log.Printf("【Rabbitmq】create Connection fail:%+v", err)
+			log.Printf("【Rabbitmq】ReopenConn create Connection fail:%+v", err)
 			time.Sleep(2 * time.Second)
 		} else {
+			log.Print("【Rabbitmq】ReopenConn create Connection success")
 			isContinue = false
 		}
 	}
@@ -209,7 +210,7 @@ func (r *rabbitmq) GetRoutingKey(queueName string) string {
 
 // Close rabbitmq connection
 func (r *rabbitmq) Close() {
-	fmt.Println("rabbitmq close ", r)
+	//fmt.Println("rabbitmq close ", r)
 	r.mux.Lock()
 	defer r.mux.Unlock()
 	if r.conn != nil && !r.conn.IsClosed() {

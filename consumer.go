@@ -62,7 +62,7 @@ func (c *consumer) Start(ctx context.Context, handle ConsumerHandler) error {
 	for isContinue {
 		select {
 		case notifyCloseMsg := <-notifyClose:
-			log.Printf("【Consumer】rabbitmq connection notify close %+v", notifyCloseMsg)
+			log.Printf("【Consumer】rabbitmq connection notify close %+v,gracefulShutdown %t", notifyCloseMsg, c.gracefulShutdown.Load())
 			if c.gracefulShutdown.Load() {
 				isContinue = false
 				break
@@ -276,8 +276,9 @@ func (c *consumer) Close(isTest ...bool) {
 	if len(isTest) == 0 || !isTest[0] {
 		c.gracefulShutdown.Swap(true)
 		rabbitmqPool.Close()
-		_ = c.conn.Close()
+		//_ = c.conn.Close()
 	} else {
 		c.gracefulShutdown.Swap(false)
 	}
+	_ = c.conn.Close()
 }
