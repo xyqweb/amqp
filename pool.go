@@ -79,7 +79,7 @@ func (p *Pool) Put(value interface{}) error {
 
 // Clear clears pool, which means it will remove all items from pool.
 func (p *Pool) Clear() {
-	if p.ExpireFunc != nil {
+	if p.Size() > 0 && p.ExpireFunc != nil {
 		for {
 			if r := p.popFront(); r != nil {
 				p.ExpireFunc(r.(*poolItem).value)
@@ -203,17 +203,13 @@ func HeartBeater(interval time.Duration, job func()) {
 		poolTick = time.NewTicker(interval)
 		sendTicks = poolTick.C
 	}
-	isContinue := true
-	for isContinue {
-		select {
-		case <-sendTicks:
-			// When idle, fill the space with a heartbeat frame
+	for {
+		if at := <-sendTicks; at.String() != "" {
 			if err := Util.Try(context.Background(), func(ctx context.Context) error {
 				job()
 				return nil
 			}); err != nil {
 				poolTick.Stop()
-				isContinue = false
 				break
 			}
 		}

@@ -192,7 +192,8 @@ func (c *consumer) createSingleQueueListen(ctx context.Context, queueName string
 			// If connection is not close reopen consume channel
 			channelNotifyClose = make(chan *amqp.Error, 1)
 			if channel, err = c.openChannel(queueName, channelNotifyClose); err != nil {
-				channelNotifyClose <- nil
+				log.Printf("【Consumer】channel reopen fail,notify message :%+v, err:%+v", notifyCloseMsg, err)
+				channelNotifyClose <- &amqp.Error{Code: 504, Reason: err.Error()}
 			} else {
 				isConnect <- true
 			}
@@ -247,6 +248,14 @@ func (c *consumer) startSingleQueueConsume(ctx context.Context, queueName string
 			if d.MessageId == "" {
 				d.MessageId = Util.RandomString(23)
 			}
+			/*
+				// test channel close code,Only opening up for local development
+				if queueData.Type == "xyqWebTestChannelClose" {
+						_ = d.Ack(true)
+						_ = channel.Close()
+						return nil
+				}
+			*/
 			queueData.Headers = d.Headers
 			queueData.MessageId = d.MessageId
 			queueData.QueueName = queueName
@@ -254,9 +263,9 @@ func (c *consumer) startSingleQueueConsume(ctx context.Context, queueName string
 			defer cancel()
 			if execErr = c.handler(cancelCtx, queueData); execErr != nil {
 				if _, pushErr := Producer.PublishByConsumer(ctx, queueData, d.Body); pushErr != nil {
-					log.Printf("【Consumer】queue:%+v，consume error：%+v, retry push error:%+v", queueData, execErr, pushErr)
+					log.Printf("【Consumer】queue:%+v，consume error：%+v, repush error:%+v", queueData, execErr, pushErr)
 				} else {
-					log.Printf("【Consumer】queue :%+v，consume error：%+v", queueData, execErr)
+					log.Printf("【Consumer】queue :%+v，consume error：%+v,already repush", queueData, execErr)
 				}
 			}
 			return execErr
@@ -276,7 +285,6 @@ func (c *consumer) Close(isTest ...bool) {
 	if len(isTest) == 0 || !isTest[0] {
 		c.gracefulShutdown.Swap(true)
 		rabbitmqPool.Close()
-		//_ = c.conn.Close()
 	} else {
 		c.gracefulShutdown.Swap(false)
 	}

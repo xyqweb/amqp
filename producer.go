@@ -18,7 +18,6 @@ type (
 		interceptTxQueue map[string][]*queuePushItem // intercept database transaction queue
 		mux              *sync.RWMutex
 	}
-	TxId func(ctx context.Context) string
 )
 
 // get rabbitmq pool
@@ -32,10 +31,28 @@ func (p *producer) getPool() (*rabbitmq, error) {
 	}
 }
 
+// getTxId get database transaction id
+func (p *producer) getTxId(ctx context.Context, transactionId ...string) string {
+	if len(transactionId) > 0 && transactionId[0] != "" {
+		return transactionId[0]
+	}
+	if Config.TxId != "" {
+		if ctxTxId, ok := ctx.Value(Config.TxId).(string); ok && ctxTxId != "" {
+			return ctxTxId
+		}
+	}
+	return ""
+}
+
 // TxBegin database transaction begin hook
-func (p *producer) TxBegin(txId string) error {
+// transactionId database transaction id
+func (p *producer) TxBegin(ctx context.Context, transactionId ...string) error {
 	p.mux.Lock()
 	defer p.mux.Unlock()
+	txId := p.getTxId(ctx, transactionId...)
+	if txId == "" {
+		return nil
+	}
 	if p.interceptTxQueue == nil {
 		p.interceptTxQueue = map[string][]*queuePushItem{txId: nil}
 	}
@@ -43,9 +60,14 @@ func (p *producer) TxBegin(txId string) error {
 }
 
 // TxCommit database transaction commit hook
-func (p *producer) TxCommit(ctx context.Context, txId string) (err error) {
+// transactionId database transaction id
+func (p *producer) TxCommit(ctx context.Context, transactionId ...string) (err error) {
 	if p.interceptTxQueue == nil {
 		return
+	}
+	txId := p.getTxId(ctx, transactionId...)
+	if txId == "" {
+		return nil
 	}
 	if queueList, ok := p.interceptTxQueue[txId]; ok {
 		defer delete(p.interceptTxQueue, txId)
@@ -59,11 +81,16 @@ func (p *producer) TxCommit(ctx context.Context, txId string) (err error) {
 }
 
 // TxRollback database transaction rollback hook
-func (p *producer) TxRollback(txId string) (err error) {
+// transactionId database transaction id
+func (p *producer) TxRollback(ctx context.Context, transactionId ...string) (err error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 	if p.interceptTxQueue == nil {
 		return
+	}
+	txId := p.getTxId(ctx, transactionId...)
+	if txId == "" {
+		return nil
 	}
 	if _, ok := p.interceptTxQueue[txId]; ok {
 		delete(p.interceptTxQueue, txId)
@@ -72,17 +99,14 @@ func (p *producer) TxRollback(txId string) (err error) {
 }
 
 // Publish publish queue
-func (p *producer) Publish(ctx context.Context, queue *Queue, tx ...TxId) (messageId string, err error) {
+func (p *producer) Publish(ctx context.Context, queue *Queue, txId ...string) (messageId string, err error) {
 	var (
-		txId          string
 		needIntercept = false
 		queueBody     []byte
 	)
-	if len(tx) > 0 && tx[0] != nil {
-		txId = tx[0](ctx)
-	}
-	if txId != "" {
-		if _, ok := p.interceptTxQueue[txId]; ok {
+	transactionId := p.getTxId(ctx, txId...)
+	if transactionId != "" {
+		if _, ok := p.interceptTxQueue[transactionId]; ok {
 			needIntercept = true
 		}
 	}
@@ -102,7 +126,7 @@ func (p *producer) Publish(ctx context.Context, queue *Queue, tx ...TxId) (messa
 		return p.publish(ctx, pushItem)
 	} else {
 		p.mux.Lock()
-		p.interceptTxQueue[txId] = append(p.interceptTxQueue[txId], pushItem)
+		p.interceptTxQueue[transactionId] = append(p.interceptTxQueue[transactionId], pushItem)
 		p.mux.Unlock()
 		return pushItem.MessageId, nil
 	}
@@ -111,11 +135,11 @@ func (p *producer) Publish(ctx context.Context, queue *Queue, tx ...TxId) (messa
 // PublishByConsumer publish queue for Consumer->startSingleQueueConsume exec fail
 func (p *producer) PublishByConsumer(ctx context.Context, data *QueueData, body []byte) (messageId string, err error) {
 	var attempt int32
-	if headerAttempt, ok := data.Headers[attemptName]; ok {
+	if headerAttempt, ok := data.Headers[AttemptName]; ok {
 		if attempt, ok = headerAttempt.(int32); !ok {
-			attempt = 1
+			attempt = DefaultAttempt
 		} else if attempt < 1 {
-			attempt = 1
+			attempt = DefaultAttempt
 		}
 	}
 	return p.publish(ctx, &queuePushItem{
@@ -123,7 +147,7 @@ func (p *producer) PublishByConsumer(ctx context.Context, data *QueueData, body 
 		MessageId: data.MessageId,
 		Body:      body,
 		Attempt:   attempt,
-		Delay:     60,
+		Delay:     ErrDelay,
 	})
 }
 
@@ -301,12 +325,13 @@ retry:
 		}
 		return nil
 	}); err != nil {
-		log.Printf("batchPush error begin rollback message err:%+v", err)
 		if txErr := channel.TxRollback(); txErr != nil {
-			log.Printf("transaction rollback err:%+v", txErr)
+			log.Printf("【Producer】publish queue err:%+v rabbitmq transaction rollback err:%+v", err, txErr)
+		} else {
+			log.Printf("【Producer】publish queue err:%+v rabbitmq transaction rollback success", err)
 		}
 	} else if err = channel.TxCommit(); err != nil {
-		log.Printf("batchPush success bug commit err:%+v", err)
+		log.Printf("【Producer】rabbitmq transaction commit err:%+v", err)
 	}
 	if err != nil && retryNum < 3 {
 		time.Sleep(100 * time.Millisecond)

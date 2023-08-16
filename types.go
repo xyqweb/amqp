@@ -16,6 +16,7 @@ type config struct {
 	Queue          map[string]int         `json:"queue,omitempty" yaml:"queue"`           // string queue name,uint customers num
 	HeaderArgs     map[string]interface{} `json:"headerArgs,omitempty" yaml:"headerArgs"` //
 	PushArgs       map[string]interface{} `json:"pushArgs,omitempty" yaml:"pushArgs"`     //
+	TxId           string                 `json:"txId" yaml:"txId"`
 }
 
 // QueueData 队列内容
@@ -25,7 +26,6 @@ type QueueData struct {
 	QueueName string      `json:"queue_name"`
 	Type      string      `json:"type"`
 	Data      interface{} `json:"data"`
-	//Body      []byte      `json:"body"`
 }
 
 // queuePushItem 队列推送

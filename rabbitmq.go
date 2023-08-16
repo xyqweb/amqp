@@ -12,8 +12,6 @@ import (
 	"time"
 )
 
-const attemptName = "attempt"
-
 var (
 	Config         *config
 	RabbitmqConfig = rabbitmqConfig{}
@@ -69,12 +67,17 @@ func (r *rabbitmqConfig) verify(conf *config) error {
 		conf.Kind = amqp.ExchangeDirect
 	}
 	if conf.Exchange == "" {
-		conf.Exchange = "exchange"
+		conf.Exchange = DefaultExchange
 	}
 	if len(conf.PushArgs) > 0 {
 		for k, v := range conf.PushArgs {
 			if val, ok := v.(float64); ok {
 				conf.PushArgs[k] = int(val)
+				continue
+			}
+			if val, ok := v.(int); ok {
+				conf.PushArgs[k] = val
+				continue
 			}
 		}
 	}
@@ -82,6 +85,10 @@ func (r *rabbitmqConfig) verify(conf *config) error {
 		for k, v := range conf.HeaderArgs {
 			if val, ok := v.(float64); ok {
 				conf.HeaderArgs[k] = int(val)
+			}
+			if val, ok := v.(int); ok {
+				conf.HeaderArgs[k] = val
+				continue
 			}
 		}
 	}
@@ -96,17 +103,17 @@ func (r *rabbitmqConfig) SearchArray(a []string, s string) int {
 			return i
 		}
 	}
-	return -1
+	return NotFoundIndex
 }
 
 // InArray checks whether string `s` in slice `a`.
 func (r *rabbitmqConfig) InArray(a []string, s string) bool {
-	return r.SearchArray(a, s) != -1
+	return r.SearchArray(a, s) != NotFoundIndex
 }
 
 // initiate rabbitmq pool
 func init() {
-	rabbitmqPool = NewPool(10*time.Second, func() (interface{}, error) {
+	rabbitmqPool = NewPool(60*time.Second, func() (interface{}, error) {
 		rabbit := rabbitmq{mux: new(sync.RWMutex)}
 		return &rabbit, nil
 	}, func(i interface{}) {
@@ -134,7 +141,7 @@ func (r *rabbitmq) newConn() error {
 func (r *rabbitmq) OpenConn(notifyClose ...chan *amqp.Error) *amqp.Connection {
 	if r.conn == nil || r.conn.IsClosed() {
 		if err := r.newConn(); err != nil {
-			log.Printf("【Rabbitmq】create Connection fail:%+v", err)
+			log.Printf("【Rabbitmq】Version %s open Connection fail:%+v", VERSION, err)
 			return nil
 		}
 	}
@@ -153,10 +160,10 @@ func (r *rabbitmq) ReopenConn(notifyClose chan *amqp.Error) *amqp.Connection {
 	isContinue := true
 	for isContinue {
 		if err := r.newConn(); err != nil {
-			log.Printf("【Rabbitmq】ReopenConn create Connection fail:%+v", err)
+			log.Printf("【Rabbitmq】Version %s reopen Connection fail:%+v", VERSION, err)
 			time.Sleep(2 * time.Second)
 		} else {
-			log.Print("【Rabbitmq】ReopenConn create Connection success")
+			log.Printf("【Rabbitmq】Version %s ReopenConn create Connection success", VERSION)
 			isContinue = false
 		}
 	}
@@ -191,13 +198,13 @@ func (r *rabbitmq) GetPushArgs(queueName string, delay int) amqp.Table {
 // GetHeaderArgs 获取推送头
 func (r *rabbitmq) GetHeaderArgs(queueName string, attempt int32, delay int) (amqp.Table, string, int) {
 	args := r.fillArgs(Config.HeaderArgs)
-	args[attemptName] = attempt
+	args[AttemptName] = attempt
 	if attempt > Config.MaxFail {
 		delay = 0
 		queueName += "Error"
 	}
 	if delay > 0 {
-		args["delay"] = delay
+		args["amqp-delay"] = delay
 		queueName = fmt.Sprintf("%s.%s.%d.delay", Config.Exchange, queueName, delay*1000)
 	}
 	return args, queueName, delay
@@ -210,7 +217,6 @@ func (r *rabbitmq) GetRoutingKey(queueName string) string {
 
 // Close rabbitmq connection
 func (r *rabbitmq) Close() {
-	//fmt.Println("rabbitmq close ", r)
 	r.mux.Lock()
 	defer r.mux.Unlock()
 	if r.conn != nil && !r.conn.IsClosed() {
