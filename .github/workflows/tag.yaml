@@ -20,6 +20,6 @@ jobs:
         id: release_tag
         uses: Akryum/release-tag
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AMQP_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
