@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     # Service containers to run with `code-test`
     services:
-      # MySQL backend server.
+      # Rabbitmq server.
       rabbitmq:
         image: rabbitmq
         ports:
