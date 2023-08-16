@@ -43,7 +43,5 @@ jobs:
       - name: Test Amqp
         run: go test ./... -race -coverprofile=coverage.out -covermode=atomic
 
-      - name: Report Coverage
-        uses: codecov/codecov-action@v3
-        with:
-          flags: go-${{ matrix.go-version }}-${{ matrix.goarch }}
+      - name: CodeCov
+        run: bash <(curl -s https://codecov.io/bash)
