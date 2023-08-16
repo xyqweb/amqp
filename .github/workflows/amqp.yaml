@@ -9,7 +9,11 @@ on:
       - fix/**
   pull_request:
     branches:
-      - *
+      - master
+      - main
+      - develop
+      - feature/**
+      - fix/**
 jobs:
   build:
     runs-on: ubuntu-latest

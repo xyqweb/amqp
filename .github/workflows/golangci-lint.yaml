@@ -6,7 +6,11 @@ on:
       - main
   pull_request:
     branches:
-      - *
+      - master
+      - main
+      - develop
+      - feature/**
+      - fix/**
 jobs:
   golangci:
     strategy:
