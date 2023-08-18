@@ -110,7 +110,6 @@ func (c *consumer) createQueueListen(ctx context.Context, notifyConsumerChan cha
 					if !c.conn.IsClosed() {
 						notifyConsumerChan <- name
 					}
-					log.Printf("【Consumer】create %s consume error notifyConsumeChan %+v", name, err)
 				}
 			}(name)
 		}

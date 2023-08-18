@@ -292,51 +292,49 @@ func (p *producer) txPush(ctx context.Context, queueList []*queuePushItem) (err 
 	}(channel)
 	p.mux.Lock()
 	defer p.mux.Unlock()
-	retryNum := 0
-retry:
-	if err = channel.Tx(); err != nil {
-		log.Printf("create transaction err:%+v", err)
-		return
-	}
-	if err = Util.Try(ctx, func(ctx context.Context) error {
-		for _, item := range queueList {
-			if delivery, err = p.queueBind(rabbit, channel, item); err != nil {
-				log.Printf("【Producer】queueBind bind err:%+v", err)
+	for i := 0; i < 3; i++ {
+		if err = Util.Try(ctx, func(ctx context.Context) error {
+			if err = channel.Tx(); err != nil {
+				log.Printf("create transaction err:%+v", err)
 				return err
 			}
+			for _, item := range queueList {
+				if delivery, err = p.queueBind(rabbit, channel, item); err != nil {
+					log.Printf("【Producer】queueBind bind err:%+v", err)
+					return err
+				}
 
-			if err = channel.PublishWithContext(
-				ctx,
-				delivery.Exchange,   // publish to an exchange
-				delivery.RoutingKey, // routing to 0 or more queues
-				false,               // mandatory
-				false,               // immediate
-				amqp.Publishing{
-					Headers:      delivery.Headers,
-					Body:         item.Body,
-					MessageId:    delivery.MessageId,
-					DeliveryMode: delivery.DeliveryMode, // 1=non-persistent, 2=persistent
-					Expiration:   delivery.Expiration,
-					Timestamp:    time.Now(),
-				}); err != nil {
-				log.Printf("【Producer】 PublishWithContext err:%+v", err)
-				return err
+				if err = channel.PublishWithContext(
+					ctx,
+					delivery.Exchange,   // publish to an exchange
+					delivery.RoutingKey, // routing to 0 or more queues
+					false,               // mandatory
+					false,               // immediate
+					amqp.Publishing{
+						Headers:      delivery.Headers,
+						Body:         item.Body,
+						MessageId:    delivery.MessageId,
+						DeliveryMode: delivery.DeliveryMode, // 1=non-persistent, 2=persistent
+						Expiration:   delivery.Expiration,
+						Timestamp:    time.Now(),
+					}); err != nil {
+					log.Printf("【Producer】 PublishWithContext err:%+v", err)
+					return err
+				}
 			}
-		}
-		return nil
-	}); err != nil {
-		if txErr := channel.TxRollback(); txErr != nil {
-			log.Printf("【Producer】publish queue err:%+v rabbitmq transaction rollback err:%+v", err, txErr)
+			return nil
+		}); err != nil {
+			if txErr := channel.TxRollback(); txErr != nil {
+				log.Printf("【Producer】publish queue err:%+v rabbitmq transaction rollback err:%+v", err, txErr)
+			} else {
+				log.Printf("【Producer】publish queue err:%+v rabbitmq transaction rollback success", err)
+			}
+		} else if err = channel.TxCommit(); err != nil {
+			log.Printf("【Producer】rabbitmq transaction commit err:%+v", err)
 		} else {
-			log.Printf("【Producer】publish queue err:%+v rabbitmq transaction rollback success", err)
+			break
 		}
-	} else if err = channel.TxCommit(); err != nil {
-		log.Printf("【Producer】rabbitmq transaction commit err:%+v", err)
-	}
-	if err != nil && retryNum < 3 {
 		time.Sleep(100 * time.Millisecond)
-		retryNum++
-		goto retry
 	}
 	return
 }
