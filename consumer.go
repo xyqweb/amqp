@@ -106,8 +106,8 @@ func (c *consumer) createQueueListen(ctx context.Context, notifyConsumerChan cha
 			go func(name string) {
 				if err := c.createSingleQueueListen(ctx, name); err != nil {
 					log.Printf("【Consumer】create %s consumer error %+v", name, err)
-					// If connection is not close, send queue name to chan
-					if !c.conn.IsClosed() {
+					// If gracefulShutdown is false, send queue name to chan
+					if !c.gracefulShutdown.Load() {
 						notifyConsumerChan <- name
 					}
 				}
