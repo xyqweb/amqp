@@ -63,7 +63,7 @@ func (r *rabbitmqConfig) verify(conf *config) error {
 	if conf.Host == "" || conf.User == "" || conf.Password == "" || conf.Vhost == "" || len(conf.Queue) == 0 {
 		return errors.New("rabbitmq conf error")
 	}
-	if conf.Kind == "" || !r.InArray([]string{amqp.ExchangeDirect, amqp.ExchangeTopic, amqp.ExchangeHeaders, amqp.ExchangeFanout}, conf.Kind) {
+	if conf.Kind == "" || !Util.InArray([]string{amqp.ExchangeDirect, amqp.ExchangeTopic, amqp.ExchangeHeaders, amqp.ExchangeFanout}, conf.Kind) {
 		conf.Kind = amqp.ExchangeDirect
 	}
 	if conf.Exchange == "" {
@@ -94,21 +94,6 @@ func (r *rabbitmqConfig) verify(conf *config) error {
 	}
 	Config = conf
 	return nil
-}
-
-// SearchArray search whether string `s` in slice `a`.
-func (r *rabbitmqConfig) SearchArray(a []string, s string) int {
-	for i, v := range a {
-		if s == v {
-			return i
-		}
-	}
-	return NotFoundIndex
-}
-
-// InArray checks whether string `s` in slice `a`.
-func (r *rabbitmqConfig) InArray(a []string, s string) bool {
-	return r.SearchArray(a, s) != NotFoundIndex
 }
 
 // initiate rabbitmq pool
@@ -169,50 +154,6 @@ func (r *rabbitmq) ReopenConn(notifyClose chan *amqp.Error) *amqp.Connection {
 	}
 	r.conn.NotifyClose(notifyClose)
 	return r.conn
-}
-
-// fillArgs fill args
-func (r *rabbitmq) fillArgs(args amqp.Table) amqp.Table {
-	argTable := amqp.Table{}
-	for k, v := range args {
-		if vInt, isInt := v.(int); isInt {
-			argTable[k] = vInt
-		} else if vStr, isStr := v.(string); isStr {
-			argTable[k] = vStr
-		}
-	}
-	return argTable
-}
-
-// GetPushArgs 获取args
-func (r *rabbitmq) GetPushArgs(queueName string, delay int) amqp.Table {
-	args := r.fillArgs(Config.PushArgs)
-	if delay > 0 {
-		args["x-dead-letter-exchange"] = Config.Exchange
-		args["x-dead-letter-routing-key"] = r.GetRoutingKey(queueName)
-		args[amqp.QueueMessageTTLArg] = delay * 1000
-	}
-	return args
-}
-
-// GetHeaderArgs 获取推送头
-func (r *rabbitmq) GetHeaderArgs(queueName string, attempt int32, delay int) (amqp.Table, string, int) {
-	args := r.fillArgs(Config.HeaderArgs)
-	args[AttemptName] = attempt
-	if attempt > Config.MaxFail {
-		delay = 0
-		queueName += "Error"
-	}
-	if delay > 0 {
-		args["amqp-delay"] = delay
-		queueName = fmt.Sprintf("%s.%s.%d.delay", Config.Exchange, queueName, delay*1000)
-	}
-	return args, queueName, delay
-}
-
-// GetRoutingKey get queue routing key
-func (r *rabbitmq) GetRoutingKey(queueName string) string {
-	return queueName + "Key"
 }
 
 // Close rabbitmq connection

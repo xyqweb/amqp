@@ -153,12 +153,17 @@ func (p *producer) PublishByConsumer(ctx context.Context, data *QueueData, body 
 
 // openChannel open rabbitmq connection channel
 func (p *producer) openChannel(rabbit *rabbitmq) (channel *amqp.Channel, err error) {
+retryConn:
 	if conn := rabbit.OpenConn(); conn == nil {
 		err = errors.New("open Rabbitmq connection fail")
 		log.Printf("【Producer】open Rabbitmq connection fail")
 		return
 	} else {
 		if channel, err = conn.Channel(); err != nil {
+			if err.Error() == amqp.ErrChannelMax.Error() {
+				rabbit.Close()
+				goto retryConn
+			}
 			log.Printf("【Producer】create channel err:%+v", err)
 			return
 		}
@@ -179,7 +184,7 @@ func (p *producer) openChannel(rabbit *rabbitmq) (channel *amqp.Channel, err err
 }
 
 // queueBind bind rabbitmq queue
-func (p *producer) queueBind(rabbit *rabbitmq, channel *amqp.Channel, item *queuePushItem) (delivery *queueDelivery, err error) {
+func (p *producer) queueBind(channel *amqp.Channel, item *queuePushItem) (delivery *queueDelivery, err error) {
 	var (
 		delay      = 0
 		queueName  string
@@ -192,13 +197,13 @@ func (p *producer) queueBind(rabbit *rabbitmq, channel *amqp.Channel, item *queu
 		attempt = 0
 	}
 	attempt++
-	headers, queueName, delay = rabbit.GetHeaderArgs(item.QueueName, attempt, item.Delay)
-	pushArgs := rabbit.GetPushArgs(item.QueueName, delay)
+	headers, queueName, delay = Util.GetHeaderArgs(item.QueueName, attempt, item.Delay)
+	pushArgs := Util.GetPushArgs(item.QueueName, delay)
 	if delay > 0 {
 		expiration = fmt.Sprintf("%d", delay*1000)
 		routingKey = queueName
 	} else {
-		routingKey = rabbit.GetRoutingKey(queueName)
+		routingKey = Util.GetRoutingKey(queueName)
 	}
 	if _, err = channel.QueueDeclare(
 		queueName, // name of the queue
@@ -250,7 +255,7 @@ func (p *producer) publish(ctx context.Context, item *queuePushItem) (messageId 
 		_ = channel.Close()
 		_ = rabbitmqPool.Put(rabbit)
 	}(channel)
-	if delivery, err = p.queueBind(rabbit, channel, item); err != nil {
+	if delivery, err = p.queueBind(channel, item); err != nil {
 		log.Printf("【Producer】queueBind bind err:%+v", err)
 		return
 	}
@@ -299,7 +304,7 @@ func (p *producer) txPush(ctx context.Context, queueList []*queuePushItem) (err 
 				return err
 			}
 			for _, item := range queueList {
-				if delivery, err = p.queueBind(rabbit, channel, item); err != nil {
+				if delivery, err = p.queueBind(channel, item); err != nil {
 					log.Printf("【Producer】queueBind bind err:%+v", err)
 					return err
 				}

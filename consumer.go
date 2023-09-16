@@ -21,25 +21,70 @@ type (
 		gracefulShutdown *atomic.Bool
 		mux              *sync.RWMutex
 		handler          ConsumerHandler
+		//rabbitList       map[string]*consumerRabbit
 	}
+	/*consumerRabbit struct {
+		conn   *amqp.Connection
+		rabbit *rabbitmq
+		status *atomic.Bool
+	}*/
 )
 
 // get rabbitmq pool
 func (c *consumer) getPool() error {
 	c.mux.Lock()
 	defer c.mux.Unlock()
-	if c.rabbit != nil {
-		return nil
-	}
+	//if c.rabbit != nil {
+	//	return nil
+	//}
 	if rabbitItem, err := rabbitmqPool.Get(); err != nil {
 		return err
 	} else if rabbit, ok := rabbitItem.(*rabbitmq); ok {
+		/*memoryAdd := fmt.Sprintf("%p", rabbit)
+		if conn := rabbit.OpenConn(); conn != nil {
+			c.rabbitList[memoryAdd] = &consumerRabbit{
+				conn:   conn,
+				rabbit: rabbit,
+				status: new(atomic.Bool),
+			}
+			return nil
+		} else {
+			return errors.New("cannot open rabbitmq connection")
+		}*/
 		c.rabbit = rabbit
 		return nil
 	} else {
 		return errors.New("get rabbitmq pool fail")
 	}
 }
+
+/*
+func (c *consumer) getRabbit() *consumerRabbit {
+	var instance *consumerRabbit
+	if len(c.rabbitList) == 0 {
+		if err := c.getPool(); err != nil {
+			return nil
+		}
+	}
+	for key, rabbit := range c.rabbitList {
+		if !rabbit.status.Load() {
+			c.rabbitList[key].status.Swap(true)
+			instance = rabbit
+		}
+	}
+	if instance == nil {
+		if err := c.getPool(); err != nil {
+			return nil
+		}
+		for key, rabbit := range c.rabbitList {
+			if !rabbit.status.Load() {
+				c.rabbitList[key].status.Swap(true)
+				instance = rabbit
+			}
+		}
+	}
+	return instance
+}*/
 
 // Start queue listen
 func (c *consumer) Start(ctx context.Context, handle ConsumerHandler) error {
@@ -50,6 +95,7 @@ func (c *consumer) Start(ctx context.Context, handle ConsumerHandler) error {
 	)
 	notifyConsumerChan := make(chan string, 1)
 	c.handler = handle
+	//c.rabbitList = make(map[string]*consumerRabbit)
 	if err := c.getPool(); err != nil {
 		return err
 	}
@@ -119,11 +165,14 @@ func (c *consumer) createQueueListen(ctx context.Context, notifyConsumerChan cha
 // openChannel open rabbitmq connection channel and bind queue
 func (c *consumer) openChannel(queueName string, channelNotifyClose chan *amqp.Error) (channel *amqp.Channel, err error) {
 	if channel, err = c.conn.Channel(); err != nil {
+		if err.Error() == amqp.ErrChannelMax.Error() {
+			c.Close(true)
+		}
 		log.Printf("【Consumer】Create Channel err:%+v", err)
 		return
 	}
 	channel.NotifyClose(channelNotifyClose)
-	routingKey := c.rabbit.GetRoutingKey(queueName)
+	routingKey := Util.GetRoutingKey(queueName)
 	if err = channel.ExchangeDeclare(
 		Config.Exchange, // name
 		Config.Kind,     // type
@@ -136,7 +185,7 @@ func (c *consumer) openChannel(queueName string, channelNotifyClose chan *amqp.E
 		log.Printf("【Consumer】ExchangeDeclare err:%+v", err)
 		return
 	}
-	args := c.rabbit.GetPushArgs(queueName, 0)
+	args := Util.GetPushArgs(queueName, 0)
 	if _, err = channel.QueueDeclare(
 		queueName, // name of the queue
 		true,      // durable
@@ -247,14 +296,14 @@ func (c *consumer) startSingleQueueConsume(ctx context.Context, queueName string
 			if d.MessageId == "" {
 				d.MessageId = Util.RandomString(23)
 			}
-			/*
-				// test channel close code,Only opening up for local development
-				if queueData.Type == "xyqWebTestChannelClose" {
-						_ = d.Ack(true)
-						_ = channel.Close()
-						return nil
-				}
-			*/
+
+			// test channel close code,Only opening up for local development
+			/*if queueData.Type == "xyqWebTestChannelClose" {
+				_ = d.Ack(true)
+				_ = channel.Close()
+				return nil
+			}*/
+
 			queueData.Headers = d.Headers
 			queueData.MessageId = d.MessageId
 			queueData.QueueName = queueName
@@ -277,15 +326,13 @@ func (c *consumer) startSingleQueueConsume(ctx context.Context, queueName string
 }
 
 // Close reset connection,
-func (c *consumer) Close(isTest ...bool) {
+func (c *consumer) Close(gracefulShutdown bool) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	_ = rabbitmqPool.Put(c.rabbit)
-	if len(isTest) == 0 || !isTest[0] {
-		c.gracefulShutdown.Swap(true)
+	c.gracefulShutdown.Swap(gracefulShutdown)
+	if gracefulShutdown {
 		rabbitmqPool.Close()
-	} else {
-		c.gracefulShutdown.Swap(false)
 	}
 	_ = c.conn.Close()
 }

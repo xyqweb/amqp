@@ -273,19 +273,19 @@ func Test_ConsumerStart(t *testing.T) {
 		consume := amqp.Consumer
 		go func() {
 			time.Sleep(2 * time.Second)
-			consume.Close(true)
-			/*
-				_, _ = amqp.Producer.Publish(context.Background(), &amqp.Queue{
-					QueueName: "queue",
-					Type:      "xyqWebTestChannelClose",
-					Data: map[string]interface{}{
-						"isCloseChannel": "yes",
-					},
-				})
-				t.Log("test connection close and reopen")
-			*/
+			consume.Close(false)
+
+			/*_, _ = amqp.Producer.Publish(context.Background(), &amqp.Queue{
+				QueueName: "queue",
+				Type:      "xyqWebTestChannelClose",
+				Data: map[string]interface{}{
+					"isCloseChannel": "yes",
+				},
+			})*/
+			t.Log("test connection close and reopen")
+
 			time.Sleep(6 * time.Second)
-			consume.Close()
+			consume.Close(true)
 		}()
 		if err := consume.Start(context.Background(), func(ctx context.Context, data *amqp.QueueData) error {
 			if data.Type == "testError" {
