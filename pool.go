@@ -13,7 +13,7 @@ var poolTick *time.Ticker
 
 type Pool struct {
 	list    *list.List                  // Available/idle items list.
-	closed  *atomic.Bool                // Whether the pool is closed.
+	closed  *atomic.Value               // Whether the pool is closed.
 	TTL     time.Duration               // Time To Live for pool items.
 	NewFunc func() (interface{}, error) // Callback function to create pool item.
 	// ExpireFunc is the for expired items destruction.
@@ -46,7 +46,7 @@ type ExpireFunc func(interface{})
 func NewPool(ttl time.Duration, newFunc NewFunc, expireFunc ...ExpireFunc) *Pool {
 	r := &Pool{
 		list:    list.New(),
-		closed:  new(atomic.Bool),
+		closed:  new(atomic.Value),
 		TTL:     ttl,
 		NewFunc: newFunc,
 		mutex:   new(sync.RWMutex),
@@ -62,7 +62,7 @@ func NewPool(ttl time.Duration, newFunc NewFunc, expireFunc ...ExpireFunc) *Pool
 func (p *Pool) Put(value interface{}) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	if p.closed.Load() {
+	if p.closed.Load().(bool) {
 		return errors.New("pool is closed")
 	}
 	item := &poolItem{
@@ -97,7 +97,7 @@ func (p *Pool) Clear() {
 // Get picks and returns an item from pool. If the pool is empty and NewFunc is defined,
 // it creates and returns one from NewFunc.
 func (p *Pool) Get() (interface{}, error) {
-	for !p.closed.Load() {
+	for !p.closed.Load().(bool) {
 		if r := p.popFront(); r != nil {
 			f := r.(*poolItem)
 			if f.expireAt == 0 || f.expireAt > p.TimestampMilli() {
@@ -131,7 +131,7 @@ func (p *Pool) Close() {
 
 // checkExpire removes expired items from pool in every second.
 func (p *Pool) checkExpireItems() {
-	if p.closed.Load() {
+	if p.closed.Load().(bool) {
 		// If p has ExpireFunc,
 		// then it must close all items using this function.
 		if p.ExpireFunc != nil {
