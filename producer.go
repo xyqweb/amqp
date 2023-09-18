@@ -92,9 +92,7 @@ func (p *producer) TxRollback(ctx context.Context, transactionId ...string) (err
 	if txId == "" {
 		return nil
 	}
-	if _, ok := p.interceptTxQueue[txId]; ok {
-		delete(p.interceptTxQueue, txId)
-	}
+	delete(p.interceptTxQueue, txId)
 	return
 }
 
