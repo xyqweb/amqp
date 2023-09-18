@@ -51,6 +51,7 @@ func NewPool(ttl time.Duration, newFunc NewFunc, expireFunc ...ExpireFunc) *Pool
 		NewFunc: newFunc,
 		mutex:   new(sync.RWMutex),
 	}
+	r.closed.Swap(false)
 	if len(expireFunc) > 0 {
 		r.ExpireFunc = expireFunc[0]
 	}

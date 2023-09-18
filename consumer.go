@@ -47,6 +47,7 @@ func (c *consumer) Start(ctx context.Context, handle ConsumerHandler) error {
 	)
 	notifyConsumerChan := make(chan string, 1)
 	c.handler = handle
+	c.gracefulShutdown.Swap(false)
 	if err := c.getPool(); err != nil {
 		return err
 	}
