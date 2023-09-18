@@ -8,6 +8,7 @@
   "maxExecuteTime": 3600,
   "heartbeat": 60,
   "kind": "direct",
+  "txId": "txId",
   "pushArgs": {
     "x-queue-mode": "lazy",
     "x-max-priority": 10
