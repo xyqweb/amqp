@@ -248,17 +248,26 @@ func (c *consumer) startSingleQueueConsume(ctx context.Context, queueName string
 				d.MessageId = Util.RandomString(23)
 			}
 
-			// test channel close code,Only opening up for local development
-			/*if queueData.Type == "xyqWebTestChannelClose" {
-				_ = d.Ack(true)
-				_ = channel.Close()
-				return nil
-			}*/
+			/*
+				// test channel close code,Only opening up for local development
+				if queueData.Type == "xyqWebTestChannelClose" {
+					_ = d.Ack(true)
+					_ = channel.Close()
+					return nil
+				}
+			*/
 
 			queueData.Headers = d.Headers
+			var maxExecuteTime int
+			if amqpTtr, ok := d.Headers[TtrKey]; ok {
+				maxExecuteTime = Util.CoverInt(amqpTtr)
+			} else {
+				maxExecuteTime = Config.MaxExecuteTime
+			}
+			queueData.Headers[TtrKey] = maxExecuteTime
 			queueData.MessageId = d.MessageId
 			queueData.QueueName = queueName
-			cancelCtx, cancel := context.WithTimeout(ctx, time.Duration(Config.MaxExecuteTime)*time.Second)
+			cancelCtx, cancel := context.WithTimeout(ctx, time.Duration(maxExecuteTime)*time.Second)
 			defer cancel()
 			if execErr = c.handler(cancelCtx, queueData); execErr != nil {
 				if _, pushErr := Producer.PublishByConsumer(ctx, queueData, d.Body); pushErr != nil {

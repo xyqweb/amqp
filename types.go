@@ -26,6 +26,7 @@ type QueueData struct {
 	QueueName string      `json:"queue_name"`
 	Type      string      `json:"type"`
 	Data      interface{} `json:"data"`
+	Ttr       int         `json:"ttr"`
 }
 
 // queuePushItem 队列推送
@@ -34,6 +35,7 @@ type queuePushItem struct {
 	MessageId string `json:"MessageId"`
 	Attempt   int32  `json:"attempt"`
 	Delay     int    `json:"delay"`
+	Ttr       int    `json:"ttr"`
 	Body      []byte `json:"Body"`
 }
 
@@ -42,6 +44,7 @@ type Queue struct {
 	Type      string      `json:"type"`
 	Data      interface{} `json:"data"` // Data和Body只需要传一个，Body的级别比Data更高
 	Delay     int         `json:"delay"`
+	Ttr       int         `json:"ttr"`
 }
 
 type queueDelivery struct {

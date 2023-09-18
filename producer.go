@@ -121,6 +121,7 @@ func (p *producer) Publish(ctx context.Context, queue *Queue, txId ...string) (m
 		MessageId: Util.RandomString(32),
 		Body:      queueBody,
 		Delay:     queue.Delay,
+		Ttr:       queue.Ttr,
 	}
 	if !needIntercept {
 		return p.publish(ctx, pushItem)
@@ -142,12 +143,19 @@ func (p *producer) PublishByConsumer(ctx context.Context, data *QueueData, body 
 			attempt = DefaultAttempt
 		}
 	}
+	var maxExecuteTime int
+	if amqpTtr, ok := data.Headers[TtrKey]; ok {
+		maxExecuteTime = Util.CoverInt(amqpTtr)
+	} else {
+		maxExecuteTime = Config.MaxExecuteTime
+	}
 	return p.publish(ctx, &queuePushItem{
 		QueueName: data.QueueName,
 		MessageId: data.MessageId,
 		Body:      body,
 		Attempt:   attempt,
 		Delay:     ErrDelay,
+		Ttr:       maxExecuteTime,
 	})
 }
 
@@ -197,7 +205,7 @@ func (p *producer) queueBind(channel *amqp.Channel, item *queuePushItem) (delive
 		attempt = 0
 	}
 	attempt++
-	headers, queueName, delay = Util.GetHeaderArgs(item.QueueName, attempt, item.Delay)
+	headers, queueName, delay = Util.GetHeaderArgs(item.QueueName, attempt, item.Ttr, item.Delay)
 	pushArgs := Util.GetPushArgs(item.QueueName, delay)
 	if delay > 0 {
 		expiration = fmt.Sprintf("%d", delay*1000)

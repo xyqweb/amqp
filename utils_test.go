@@ -34,3 +34,71 @@ func Test_UtilTry(t *testing.T) {
 		}
 	})
 }
+
+func Test_CoverInt(t *testing.T) {
+	t.Run("coverInt", func(t *testing.T) {
+		if val := Util.CoverInt(1); val != 1 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt(uint(1)); val != 1 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt(int8(1)); val != 1 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt(uint8(1)); val != 1 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt(int16(1)); val != 1 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt(uint16(1)); val != 1 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt(int32(1)); val != 1 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt(uint32(1)); val != 1 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt(int64(1)); val != 1 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt(uint64(1)); val != 1 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt(float32(1)); val != 1 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt(float64(1)); val != 1 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt(true); val != 1 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt(false); val != 0 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt(nil); val != 0 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt("1"); val != 1 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt("0"); val != 0 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt("a"); val != 0 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt([]byte("1")); val != 1 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt([]byte("0")); val != 0 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt([]byte("a")); val != 0 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+	})
+}

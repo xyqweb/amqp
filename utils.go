@@ -5,6 +5,7 @@ import (
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"math/rand"
+	"strconv"
 	"strings"
 )
 
@@ -81,9 +82,14 @@ func (u *util) GetPushArgs(queueName string, delay int) amqp.Table {
 }
 
 // GetHeaderArgs 获取推送头
-func (u *util) GetHeaderArgs(queueName string, attempt int32, delay int) (amqp.Table, string, int) {
+func (u *util) GetHeaderArgs(queueName string, attempt int32, ttr, delay int) (amqp.Table, string, int) {
 	args := u.fillArgs(Config.HeaderArgs)
 	args[AttemptName] = attempt
+	if ttr <= 0 {
+		args[TtrKey] = Config.MaxExecuteTime
+	} else {
+		args[TtrKey] = ttr
+	}
 	if attempt > Config.MaxFail {
 		delay = 0
 		queueName += "Error"
@@ -98,4 +104,57 @@ func (u *util) GetHeaderArgs(queueName string, attempt int32, delay int) (amqp.T
 // GetRoutingKey get queue routing key
 func (u *util) GetRoutingKey(queueName string) string {
 	return queueName + "Key"
+}
+
+// CoverInt converts `any` to int.
+func (u *util) CoverInt(any interface{}) int {
+	if any == nil {
+		return 0
+	}
+	switch value := any.(type) {
+	case int:
+		return value
+	case int8:
+		return int(value)
+	case int16:
+		return int(value)
+	case int32:
+		return int(value)
+	case int64:
+		return int(value)
+	case uint:
+		return int(value)
+	case uint8:
+		return int(value)
+	case uint16:
+		return int(value)
+	case uint32:
+		return int(value)
+	case uint64:
+		return int(value)
+	case float32:
+		return int(value)
+	case float64:
+		return int(value)
+	case bool:
+		if value {
+			return 1
+		}
+		return 0
+	case []byte:
+		s := string(value)
+		if val, err := strconv.Atoi(s); err != nil {
+			return 0
+		} else {
+			return val
+		}
+	case string:
+		if val, err := strconv.Atoi(value); err != nil {
+			return 0
+		} else {
+			return val
+		}
+	default:
+		return 0
+	}
 }
