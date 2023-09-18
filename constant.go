@@ -1,7 +1,7 @@
 package amqp
 
 const (
-	VERSION                    = "1.0.0"
+	VERSION                    = "1.0.1"
 	AttemptName                = "attempt"
 	DefaultExchange            = "exchange"
 	NotFoundIndex              = -1
