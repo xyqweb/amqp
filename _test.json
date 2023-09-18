@@ -13,6 +13,10 @@
     "x-queue-mode": "lazy",
     "x-max-priority": 10
   },
+  "headerArgs": {
+    "source": "xyqweb",
+    "version": 1
+  },
   "queue": {
     "queue": 2
   }

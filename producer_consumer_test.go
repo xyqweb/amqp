@@ -188,6 +188,7 @@ func Test_ProducerTxPushContext(t *testing.T) {
 func Test_ProducerTxPushParams(t *testing.T) {
 	//t.Skip()
 	t.Run("push queue by transaction commit", func(t *testing.T) {
+		amqp.Config.TxId = ""
 		producer := amqp.Producer
 		txId := "rK1y4WEeT8mDThVITiFO"
 		ctx := context.Background()
