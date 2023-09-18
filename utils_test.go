@@ -15,21 +15,28 @@ func Test_UtilRandomString(t *testing.T) {
 	})
 }
 
+func Test_SearchArray(t *testing.T) {
+	t.Run("searchArray", func(t *testing.T) {
+		if index := Util.SearchArray([]string{"a", "b"}, "c"); index != NotFoundIndex {
+			t.Error("testSearchArray fail")
+		}
+	})
+}
+
 func Test_UtilTry(t *testing.T) {
 	ctx := context.Background()
 	t.Run("try", func(t *testing.T) {
-		err := Util.Try(ctx, func(ctx context.Context) error {
+		if err := Util.Try(ctx, func(ctx context.Context) error {
 			panic("tryPanic")
-		})
-		if err.Error() != "tryPanic" {
+		}); err.Error() != "tryPanic" {
 			t.Errorf("TestUtilTry tryPanic fail %+v", err)
 		}
 	})
+
 	t.Run("try", func(t *testing.T) {
-		err := Util.Try(ctx, func(ctx context.Context) error {
+		if err := Util.Try(ctx, func(ctx context.Context) error {
 			return errors.New("tryErr")
-		})
-		if err.Error() != "tryErr" {
+		}); err.Error() != "tryErr" {
 			t.Errorf("TestUtilTry tryErr fail %+v", err)
 		}
 	})
@@ -98,6 +105,9 @@ func Test_CoverInt(t *testing.T) {
 			t.Errorf("TestUtilTry coverInt fail")
 		}
 		if val := Util.CoverInt([]byte("a")); val != 0 {
+			t.Errorf("TestUtilTry coverInt fail")
+		}
+		if val := Util.CoverInt(struct{}{}); val != 0 {
 			t.Errorf("TestUtilTry coverInt fail")
 		}
 	})
