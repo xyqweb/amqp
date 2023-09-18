@@ -11,14 +11,14 @@ import (
 	"time"
 )
 
-var Consumer = consumer{gracefulShutdown: new(atomic.Bool), mux: new(sync.RWMutex)}
+var Consumer = consumer{gracefulShutdown: new(atomic.Value), mux: new(sync.RWMutex)}
 
 type (
 	ConsumerHandler func(ctx context.Context, data *QueueData) error
 	consumer        struct {
 		conn             *amqp.Connection
 		rabbit           *rabbitmq
-		gracefulShutdown *atomic.Bool
+		gracefulShutdown *atomic.Value
 		mux              *sync.RWMutex
 		handler          ConsumerHandler
 	}
@@ -60,7 +60,7 @@ func (c *consumer) Start(ctx context.Context, handle ConsumerHandler) error {
 		select {
 		case notifyCloseMsg := <-notifyClose:
 			log.Printf("【Consumer】rabbitmq connection notify close %+v,gracefulShutdown %t", notifyCloseMsg, c.gracefulShutdown.Load())
-			if c.gracefulShutdown.Load() {
+			if c.gracefulShutdown.Load().(bool) {
 				isContinue = false
 				break
 			}
@@ -104,7 +104,7 @@ func (c *consumer) createQueueListen(ctx context.Context, notifyConsumerChan cha
 				if err := c.createSingleQueueListen(ctx, name); err != nil {
 					log.Printf("【Consumer】create %s consumer error %+v", name, err)
 					// If gracefulShutdown is false, send queue name to chan
-					if !c.gracefulShutdown.Load() {
+					if !c.gracefulShutdown.Load().(bool) {
 						notifyConsumerChan <- name
 					}
 				}
