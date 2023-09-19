@@ -12,7 +12,7 @@ env:
 
 
 jobs:
-  build:
+  release:
     name: Auto Creating Tags
     runs-on: ubuntu-latest
     steps:
