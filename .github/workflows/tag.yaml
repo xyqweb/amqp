@@ -1,4 +1,4 @@
-name: Auto Creating Tags
+name: Amqp Build Release
 
 on:
   push:
@@ -8,13 +8,23 @@ on:
 
 env:
   TZ: Asia/Shanghai
-  GITHUB_TOKEN: ${{ secrets.AMQP_TOKEN }}
 
 
 jobs:
-  release:
-    name: Auto Creating Tags
+  build:
+    name: Build And Release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Github Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Create Github Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.AMQP_TOKEN }}
+        with:
+          tag_name:     ${{ github.ref }}
+          name: AMQP Release ${{ github.ref }}
+          draft:        false
+          prerelease:   false
