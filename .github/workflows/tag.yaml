@@ -25,6 +25,3 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.AMQP_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          name: amqp release ${{ github.ref }}
-          draft: false
-          prerelease: false
