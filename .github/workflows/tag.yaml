@@ -1,30 +1,30 @@
-name: Amqp Build Release
+name: Amqp Create Release
 
+# When a tag is pushed, create a release
 on:
   push:
-    # Sequence of patterns matched against refs/tags
     tags:
-      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
-
+      - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
 env:
   TZ: Asia/Shanghai
 
-
 jobs:
   build:
-    name: Build And Release
+    name: Create Release
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Github Code
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@master
+        with:
+          fetch-depth: 0 # Fetch all tags
 
-      - name: Create Github Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
+      - name: Create Release for Tag
+        id: release_tag
+        uses: Akryum/release-tag
         env:
           GITHUB_TOKEN: ${{ secrets.AMQP_TOKEN }}
         with:
-          tag_name:     ${{ github.ref }}
-          name: AMQP Release ${{ github.ref }}
-          draft:        false
-          prerelease:   false
+          tag_name: ${{ github.ref }}
+          name: amqp release ${{ github.ref }}
+          draft: false
+          prerelease: false
