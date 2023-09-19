@@ -34,3 +34,4 @@ jobs:
           name: AMQP Release ${{ env.RELEASE_VERSION }}
           draft:        false
           prerelease:   false
+          generate_release_notes: true
